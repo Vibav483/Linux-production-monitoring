@@ -64,3 +64,32 @@ fi
 
 echo "Usage: ${cpu_usage}%"
 echo "Status: ${cpu_status}"	 
+
+echo
+echo "MEMORY"
+echo "------"
+
+mem_total=$(awk '/^MemTotal:/ {print $2}' /proc/meminfo)
+mem_available=$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo)
+
+if [[ -z "$mem_total" || -z "$mem_available" ]]; then
+    echo "ERROR: Failed to collect memory statistics"
+    exit 1
+fi
+
+mem_used=$((mem_total - mem_available))
+memory_usage=$((mem_used * 100 / mem_total))
+
+MEMORY_WARNING=80
+MEMORY_CRITICAL=90
+
+if (( memory_usage >= MEMORY_CRITICAL )); then
+    memory_status="CRITICAL"
+elif (( memory_usage >= MEMORY_WARNING )); then
+    memory_status="WARNING"
+else
+    memory_status="OK"
+fi
+
+echo "Usage: ${memory_usage}%"
+echo "Status: ${memory_status}"
