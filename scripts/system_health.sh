@@ -1,5 +1,15 @@
 #!/bin/bash
 
+# Configuration
+CONFIG_FILE="$(dirname "$0")/../config/monitoring.conf"
+
+if [[ ! -f "$CONFIG_FILE" ]]; then
+    echo "ERROR: Configuration file not found: $CONFIG_FILE"
+    exit 1
+fi
+
+source "$CONFIG_FILE"
+
 # Linux Production Monitoring
 
 # ============================================================
@@ -46,8 +56,6 @@ check_cpu() {
 
     cpu_usage=$(( (total_delta - idle_delta) * 100 / total_delta ))
 
-    CPU_WARNING=70
-    CPU_CRITICAL=90
 
     if (( cpu_usage >= CPU_CRITICAL )); then
         cpu_status="CRITICAL"
@@ -83,9 +91,6 @@ check_memory() {
     mem_used=$((mem_total - mem_available))
     memory_usage=$((mem_used * 100 / mem_total))
 
-    MEMORY_WARNING=80
-    MEMORY_CRITICAL=90
-
     if (( memory_usage >= MEMORY_CRITICAL )); then
         memory_status="CRITICAL"
     elif (( memory_usage >= MEMORY_WARNING )); then
@@ -118,8 +123,6 @@ check_filesystem() {
         exit 1
     fi
 
-    DISK_WARNING=80
-    DISK_CRITICAL=90
 
     if (( disk_usage >= DISK_CRITICAL )); then
         disk_status="CRITICAL"
@@ -153,8 +156,6 @@ check_inodes() {
         exit 1
     fi
 
-    INODE_WARNING=80
-    INODE_CRITICAL=90
 
     if (( inode_usage >= INODE_CRITICAL )); then
         inode_status="CRITICAL"
