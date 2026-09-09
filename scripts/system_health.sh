@@ -93,3 +93,55 @@ fi
 
 echo "Usage: ${memory_usage}%"
 echo "Status: ${memory_status}"
+
+echo
+echo "FILESYSTEM"
+echo "----------"
+
+filesystem="/"
+
+disk_usage=$(df -P "$filesystem" | awk 'NR==2 {gsub("%",""); print $5}')
+
+if [[ -z "$disk_usage" ]]; then
+    echo "ERROR: Failed to collect filesystem statistics"
+    exit 1
+fi
+
+DISK_WARNING=80
+DISK_CRITICAL=90
+
+if (( disk_usage >= DISK_CRITICAL )); then
+    disk_status="CRITICAL"
+elif (( disk_usage >= DISK_WARNING )); then
+    disk_status="WARNING"
+else
+    disk_status="OK"
+fi
+
+echo "$filesystem Usage: ${disk_usage}%"
+echo "Status: ${disk_status}"
+
+echo
+echo "INODES"
+echo "------"
+
+inode_usage=$(df -Pi "$filesystem" | awk 'NR==2 {gsub("%",""); print $5}')
+
+if [[ -z "$inode_usage" ]]; then
+    echo "ERROR: Failed to collect inode statistics"
+    exit 1
+fi
+
+INODE_WARNING=80
+INODE_CRITICAL=90
+
+if (( inode_usage >= INODE_CRITICAL )); then
+    inode_status="CRITICAL"
+elif (( inode_usage >= INODE_WARNING )); then
+    inode_status="WARNING"
+else
+    inode_status="OK"
+fi
+
+echo "$filesystem Usage: ${inode_usage}%"
+echo "Status: ${inode_status}"
