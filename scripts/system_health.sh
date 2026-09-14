@@ -114,7 +114,9 @@ check_filesystem() {
     echo "FILESYSTEM"
     echo "----------"
 
-    disk_usage=$(df -P "$FILESYSTEM" | awk 'NR==2 {gsub("%",""); print $5}')
+    for filesystem in $FILESYSTEMS
+    do
+        disk_usage=$(df -P "$filesystem" | awk 'NR==2 {gsub("%",""); print $5}')
 
     if [[ -z "$disk_usage" ]]; then
         echo "ERROR: Failed to collect filesystem statistics"
@@ -130,8 +132,11 @@ check_filesystem() {
         disk_status="OK"
     fi
 
-    echo "$FILESYSTEM Usage: ${disk_usage}%"
+    echo "$filesystem Usage: ${disk_usage}%"
     echo "Status: ${disk_status}"
+    echo
+done
+
 }
 
 
@@ -145,26 +150,27 @@ check_inodes() {
     echo "INODES"
     echo "------"
 
-    filesystem="/"
+    for filesystem in $FILESYSTEMS
+    do
+        inode_usage=$(df -Pi "$filesystem" | awk 'NR==2 {gsub("%",""); print $5}')
 
-    inode_usage=$(df -Pi "$filesystem" | awk 'NR==2 {gsub("%",""); print $5}')
+        if [[ -z "$inode_usage" ]]; then
+            echo "ERROR: Failed to collect inode statistics for $filesystem"
+            continue
+        fi
 
-    if [[ -z "$inode_usage" ]]; then
-        echo "ERROR: Failed to collect inode statistics"
-        exit 1
-    fi
+        if (( inode_usage >= INODE_CRITICAL )); then
+            inode_status="CRITICAL"
+        elif (( inode_usage >= INODE_WARNING )); then
+            inode_status="WARNING"
+        else
+            inode_status="OK"
+        fi
 
-
-    if (( inode_usage >= INODE_CRITICAL )); then
-        inode_status="CRITICAL"
-    elif (( inode_usage >= INODE_WARNING )); then
-        inode_status="WARNING"
-    else
-        inode_status="OK"
-    fi
-
-    echo "$filesystem Usage: ${inode_usage}%"
-    echo "Status: ${inode_status}"
+        echo "$filesystem Usage: ${inode_usage}%"
+        echo "Status: ${inode_status}"
+        echo
+    done
 }
 
 
