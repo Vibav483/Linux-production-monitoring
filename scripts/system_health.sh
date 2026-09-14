@@ -173,6 +173,23 @@ check_inodes() {
     done
 }
 
+check_services() {
+
+    echo
+    echo "SERVICES"
+    echo "--------"
+
+    for service in $SERVICES
+    do
+        if systemctl is-active --quiet "$service"; then
+            service_status="OK"
+        else
+            service_status="CRITICAL"
+        fi
+
+        echo "$service: $service_status"
+    done
+}
 
 # ============================================================
 # MAIN
@@ -190,3 +207,4 @@ check_cpu
 check_memory
 check_filesystem
 check_inodes
+check_services
