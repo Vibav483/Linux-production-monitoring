@@ -114,9 +114,7 @@ check_filesystem() {
     echo "FILESYSTEM"
     echo "----------"
 
-    filesystem="/"
-
-    disk_usage=$(df -P "$filesystem" | awk 'NR==2 {gsub("%",""); print $5}')
+    disk_usage=$(df -P "$FILESYSTEM" | awk 'NR==2 {gsub("%",""); print $5}')
 
     if [[ -z "$disk_usage" ]]; then
         echo "ERROR: Failed to collect filesystem statistics"
@@ -132,7 +130,7 @@ check_filesystem() {
         disk_status="OK"
     fi
 
-    echo "$filesystem Usage: ${disk_usage}%"
+    echo "$FILESYSTEM Usage: ${disk_usage}%"
     echo "Status: ${disk_status}"
 }
 
