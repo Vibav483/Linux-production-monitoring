@@ -2,6 +2,7 @@
 
 # Configuration
 CONFIG_FILE="$(dirname "$0")/../config/monitoring.conf"
+LOG_FILE="$(dirname "$0")/../logs/system_health.log"
 
 if [[ ! -f "$CONFIG_FILE" ]]; then
     echo "ERROR: Configuration file not found: $CONFIG_FILE"
@@ -9,6 +10,15 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
 fi
 
 source "$CONFIG_FILE"
+
+log_event() {
+    local component="$1"
+    local resource="$2"
+    local status="$3"
+    local details="$4"
+
+    echo "$(date '+%Y-%m-%d %H:%M:%S') | $component | $resource | $status | $details" >> "$LOG_FILE"
+}
 
 # Linux Production Monitoring
 
@@ -67,6 +77,8 @@ check_cpu() {
 
     echo "Usage: ${cpu_usage}%"
     echo "Status: ${cpu_status}"
+    log_event "CPU" "system" "$cpu_status" "Usage=${cpu_usage}%"
+
 }
 
 
@@ -101,6 +113,7 @@ check_memory() {
 
     echo "Usage: ${memory_usage}%"
     echo "Status: ${memory_status}"
+    log_event "MEMORY" "system" "$memory_status" "Usage=${memory_usage}%"
 }
 
 
@@ -134,6 +147,7 @@ check_filesystem() {
 
     echo "$filesystem Usage: ${disk_usage}%"
     echo "Status: ${disk_status}"
+    log_event "FILESYSTEM" "$filesystem" "$disk_status" "Usage=${disk_usage}%"
     echo
 done
 
@@ -168,8 +182,9 @@ check_inodes() {
         fi
 
         echo "$filesystem Usage: ${inode_usage}%"
-        echo "Status: ${inode_status}"
-        echo
+	echo "Status: ${inode_status}"
+        log_event "INODE" "$filesystem" "$inode_status" "Usage=${inode_usage}%"
+	echo
     done
 }
 
@@ -181,13 +196,17 @@ check_services() {
 
     for service in $SERVICES
     do
-        if systemctl is-active --quiet "$service"; then
+        service_state=$(systemctl is-active "$service")
+
+        if [[ "$service_state" == "active" ]]; then
             service_status="OK"
         else
             service_status="CRITICAL"
         fi
 
         echo "$service: $service_status"
+
+        log_event "SERVICE" "$service" "$service_status" "status=$service_state"
     done
 }
 
