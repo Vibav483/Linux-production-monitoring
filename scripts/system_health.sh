@@ -188,8 +188,33 @@ check_inodes() {
     done
 }
 
-check_services() {
+remediate_service() {
+    local service="$1"
 
+    echo "Attempting remediation for: $service"
+
+    if systemctl restart "$service"; then
+        echo "$service restart command succeeded"
+    else
+        echo "$service restart command failed"
+        return 1
+    fi
+
+    sleep 1
+
+    service_state=$(systemctl is-active "$service")
+
+    if [[ "$service_state" == "active" ]]; then
+        echo "$service: REMEDIATION SUCCESS"
+        log_event "REMEDIATION" "$service" "SUCCESS" "status=$service_state"
+    else
+        echo "$service: REMEDIATION FAILED"
+        log_event "REMEDIATION" "$service" "FAILED" "status=$service_state"
+    fi
+}
+
+
+check_services() {
     echo
     echo "SERVICES"
     echo "--------"
@@ -207,10 +232,19 @@ check_services() {
         echo "$service: $service_status"
 
         log_event "SERVICE" "$service" "$service_status" "status=$service_state"
+
+        if [[ "$service_status" == "CRITICAL" ]]; then
+            for remediation_service in $REMEDIATION_SERVICES
+            do
+                if [[ "$service" == "$remediation_service" ]]; then
+                    remediate_service "$service"
+                fi
+            done
+        fi
     done
 }
 
-# ============================================================
+
 # MAIN
 # ============================================================
 
