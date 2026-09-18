@@ -197,6 +197,8 @@ remediate_service() {
         echo "$service restart command succeeded"
     else
         echo "$service restart command failed"
+        log_event "REMEDIATION" "$service" "FAILED" "restart_command_failed"
+
         return 1
     fi
 
