@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Linux Production Monitoring Every 5 Minutes
+
+[Timer]
+OnCalendar=*:0/5
+Persistent=true
+Unit=linux-monitoring.service
+
+[Install]
+WantedBy=timers.target

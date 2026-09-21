@@ -1,0 +1,6 @@
+[Unit]
+Description=Linux Production Monitoring
+
+[Service]
+Type=oneshot
+ExecStart=/home/nvign/linux-production-monitoring/scripts/system_health.sh
