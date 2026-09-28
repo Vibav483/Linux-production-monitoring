@@ -18,3 +18,6 @@ jobs:
 
       - name: Check Bash syntax
         run: bash -n scripts/system_health.sh
+
+      - name: Check monitoring configuration
+        run: bash -n config/monitoring.conf
