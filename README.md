@@ -22,3 +22,5 @@ A Linux-based monitoring and automation project built using Bash scripting.
 - GitHub
 - systemd
 - SSH
+
+CI/CD is validated using GitHub Actions.
