@@ -24,3 +24,6 @@ jobs:
 
       - name: Run CPU functional test
         run: ./tests/test_cpu.sh
+      
+      - name: Run memory functional test
+        run: ./tests/test_memory.sh
