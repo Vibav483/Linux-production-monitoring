@@ -21,3 +21,6 @@ jobs:
 
       - name: Check monitoring configuration
         run: bash -n config/monitoring.conf
+
+      - name: Run CPU functional test
+        run: ./tests/test_cpu.sh
