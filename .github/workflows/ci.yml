@@ -27,3 +27,6 @@ jobs:
       
       - name: Run memory functional test
         run: ./tests/test_memory.sh
+
+      - name: Run filesystem functional test
+        run: ./tests/test_filesystem.sh
