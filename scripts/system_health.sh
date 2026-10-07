@@ -64,10 +64,16 @@ check_cpu() {
     total_delta=$((total_after - total_before))
     idle_delta=$((idle_after - idle_before))
 
+    if (( total_delta <= 0 )); then
+        echo "ERROR: Invalid CPU statistics: total CPU delta is $total_delta"
+        log_event "CPU" "system" "ERROR" "Invalid total_delta=$total_delta"
+        return 0
+    fi
+
     cpu_usage=$(( (total_delta - idle_delta) * 100 / total_delta ))
 
-
     if (( cpu_usage >= CPU_CRITICAL )); then
+
         cpu_status="CRITICAL"
     elif (( cpu_usage >= CPU_WARNING )); then
         cpu_status="WARNING"
