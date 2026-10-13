@@ -218,9 +218,9 @@ remediate_service() {
     else
         echo "$service: REMEDIATION FAILED"
         log_event "REMEDIATION" "$service" "FAILED" "status=$service_state"
+        return 1
     fi
 }
-
 
 check_services() {
     echo
@@ -245,7 +245,9 @@ check_services() {
             for remediation_service in $REMEDIATION_SERVICES
             do
                 if [[ "$service" == "$remediation_service" ]]; then
-                    remediate_service "$service"
+                    if ! remediate_service "$service"; then
+                        echo "$service: remediation attempt failed"
+                    fi
                 fi
             done
         fi
