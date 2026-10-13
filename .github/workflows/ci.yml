@@ -30,3 +30,6 @@ jobs:
 
       - name: Run filesystem functional test
         run: ./tests/test_filesystem.sh
+
+      - name: Run remediation functional test
+        run: ./tests/test_remediation.sh
