@@ -3,23 +3,41 @@
 
 set -u
 
-# Test remediation logic without restarting real system services.
+# Test remediation behavior without restarting real system services.
 
 test_dir=$(mktemp -d) || exit 1
 trap 'rm -rf "$test_dir"' EXIT
 
 export TEST_LOG="$test_dir/test.log"
-export MOCK_RESTART_RESULT=0
-export MOCK_SERVICE_STATE="active"
 
-# Mock systemctl so no real services are touched.
+REMEDIATION_RETRY_INTERVAL=2
+REMEDIATION_MAX_ATTEMPTS=3
+
+MOCK_RESTART_RESULT=0
+MOCK_STATES=("inactive")
+MOCK_STATE_FILE="$test_dir/state-index"
+
+# Mock systemctl. State advances through a file so updates
+# persist across Bash command substitutions.
 systemctl() {
     case "$1" in
         restart)
             return "$MOCK_RESTART_RESULT"
             ;;
         is-active)
-            echo "$MOCK_SERVICE_STATE"
+            local index=0
+
+            if [[ -f "$MOCK_STATE_FILE" ]]; then
+                index=$(<"$MOCK_STATE_FILE")
+            fi
+
+            echo "$((index + 1))" > "$MOCK_STATE_FILE"
+
+            if (( index < ${#MOCK_STATES[@]} )); then
+                echo "${MOCK_STATES[$index]}"
+            else
+                echo "${MOCK_STATES[${#MOCK_STATES[@]}-1]}"
+            fi
             return 0
             ;;
         *)
@@ -29,14 +47,21 @@ systemctl() {
     esac
 }
 
-# Minimal log_event replacement for this isolated test.
+# Do not actually sleep during tests.
+sleep() {
+    :
+}
+
+# Capture remediation events in a temporary log.
 log_event() {
     echo "$*" >> "$TEST_LOG"
 }
 
-# Function under test: keep this aligned with system_health.sh.
+# Mirrors the production remediation function.
 remediate_service() {
     local service="$1"
+    local service_state=""
+    local attempt
 
     echo "Attempting remediation for: $service"
 
@@ -48,24 +73,32 @@ remediate_service() {
         return 1
     fi
 
-    sleep 1
+    for ((attempt = 1; attempt <= REMEDIATION_MAX_ATTEMPTS; attempt++))
+    do
+        sleep "$REMEDIATION_RETRY_INTERVAL"
+        service_state=$(systemctl is-active "$service" 2>/dev/null) || true
 
-    local service_state
-    service_state=$(systemctl is-active "$service")
+        if [[ "$service_state" == "active" ]]; then
+            echo "$service: REMEDIATION SUCCESS"
+            log_event "REMEDIATION" "$service" "SUCCESS" \
+                "status=$service_state attempts=$attempt"
+            return 0
+        fi
 
-    if [[ "$service_state" == "active" ]]; then
-        echo "$service: REMEDIATION SUCCESS"
-        log_event "REMEDIATION" "$service" "SUCCESS" "status=$service_state"
-    else
-        echo "$service: REMEDIATION FAILED"
-        log_event "REMEDIATION" "$service" "FAILED" "status=$service_state"
-        return 1
-    fi
+        echo "$service: verification attempt $attempt/$REMEDIATION_MAX_ATTEMPTS - status=$service_state"
+    done
+
+    echo "$service: REMEDIATION FAILED"
+    log_event "REMEDIATION" "$service" "FAILED" \
+        "status=$service_state attempts=$REMEDIATION_MAX_ATTEMPTS"
+    return 1
 }
 
-# Test 1: restart command fails.
+# Test 1: restart command fails immediately.
+: > "$TEST_LOG"
 MOCK_RESTART_RESULT=1
-MOCK_SERVICE_STATE="inactive"
+MOCK_STATES=("inactive")
+echo 0 > "$MOCK_STATE_FILE"
 
 if remediate_service "test-service" >/dev/null 2>&1; then
     echo "FAIL: restart-command failure returned success"
@@ -79,38 +112,46 @@ fi
 
 echo "PASS: restart-command failure is returned and logged"
 
-# Test 2: restart succeeds, but service remains inactive.
+# Test 2: service becomes active on the second verification attempt.
 : > "$TEST_LOG"
 MOCK_RESTART_RESULT=0
-MOCK_SERVICE_STATE="inactive"
-
-if remediate_service "test-service" >/dev/null 2>&1; then
-    echo "FAIL: inactive service returned success"
-    exit 1
-fi
-
-if ! grep -q 'FAILED.*status=inactive' "$TEST_LOG"; then
-    echo "FAIL: inactive service failure was not logged"
-    exit 1
-fi
-
-echo "PASS: inactive service failure is returned and logged"
-
-# Test 3: restart succeeds and service becomes active.
-: > "$TEST_LOG"
-MOCK_RESTART_RESULT=0
-MOCK_SERVICE_STATE="active"
+MOCK_STATES=("inactive" "active")
+echo 0 > "$MOCK_STATE_FILE"
 
 if ! remediate_service "test-service" >/dev/null 2>&1; then
-    echo "FAIL: successful remediation returned failure"
+    echo "FAIL: recovery on a later attempt returned failure"
     exit 1
 fi
 
-if ! grep -q 'SUCCESS.*status=active' "$TEST_LOG"; then
-    echo "FAIL: successful remediation was not logged"
+if ! grep -q 'SUCCESS.*status=active attempts=2' "$TEST_LOG"; then
+    echo "FAIL: recovery on the second attempt was not logged"
     exit 1
 fi
 
-echo "PASS: successful remediation is returned and logged"
+echo "PASS: service recovery on a later attempt is detected"
+
+# Test 3: service remains inactive through all attempts.
+: > "$TEST_LOG"
+MOCK_STATES=("inactive")
+echo 0 > "$MOCK_STATE_FILE"
+
+if remediate_service "test-service" >/dev/null 2>&1; then
+    echo "FAIL: persistent inactivity returned success"
+    exit 1
+fi
+
+if ! grep -q 'FAILED.*status=inactive attempts=3' "$TEST_LOG"; then
+    echo "FAIL: final timeout failure was not logged correctly"
+    exit 1
+fi
+
+if [[ $(cat "$MOCK_STATE_FILE") -ne "$REMEDIATION_MAX_ATTEMPTS" ]]; then
+    echo "FAIL: unexpected number of verification attempts"
+    exit 1
+fi
+
+echo "PASS: persistent inactivity fails after the maximum attempts"
+
+echo "All remediation tests passed."
 exit 0
 
